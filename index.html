@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Difficult Keys Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef3f7; --panel:#ffffff; --ink:#14213d; --muted:#5b6b7f; --line:#c7d3de;
+  --accent:#2f5d8a; --accent-ink:#ffffff;
+  --easy:#5aa469; --mid:#e3b23c; --hard:#d1495b; --none:#e4eaf0;
+  --cur:#fff1c2; --done:#8a99ab;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16202b; --panel:#1e2a37; --ink:#e8eef5; --muted:#9aabbd; --line:#34465a;
+    --accent:#6b9fd1; --accent-ink:#0e1620; --none:#2a3847; --cur:#4a4126; --done:#6d7f92;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16202b; --panel:#1e2a37; --ink:#e8eef5; --muted:#9aabbd; --line:#34465a;
+  --accent:#6b9fd1; --accent-ink:#0e1620; --none:#2a3847; --cur:#4a4126; --done:#6d7f92;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 "Atkinson Hyperlegible",system-ui,sans-serif}
+main{max-width:920px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:2rem;line-height:1.15;margin:0 0 6px}
+h2{font-size:1.3rem;margin:34px 0 10px}
+p{margin:0 0 12px;max-width:68ch}
+.lead{color:var(--muted)}
+button{font:inherit;font-weight:700;border:2px solid var(--accent);background:var(--accent);color:var(--accent-ink);padding:10px 18px;border-radius:8px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+button:focus-visible,.board:focus-visible{outline:3px solid var(--mid);outline-offset:3px}
+.row-btns{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+
+/* typing board */
+.board{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;margin-top:18px;cursor:text}
+.text{font:600 1.35rem/2 "IBM Plex Mono",ui-monospace,Consolas,monospace;word-break:break-word;letter-spacing:.02em}
+.text span{border-radius:3px}
+.text .ok{color:var(--done)}
+.text .cur{background:var(--cur);box-shadow:inset 0 -3px 0 var(--accent)}
+.text .bad{background:var(--hard);color:#fff}
+.hint{color:var(--muted);font-size:.95rem;margin-top:10px}
+.cap{position:absolute;opacity:0;left:0;top:0;width:1px;height:1px;border:0;padding:0}
+.live{display:flex;gap:22px;flex-wrap:wrap;margin-top:12px;color:var(--muted);font-size:.95rem}
+.live b{color:var(--ink);font-size:1.1rem}
+
+/* keyboard heatmap — the one bold element */
+.kb-wrap{overflow-x:auto;margin-top:8px}
+.kb{display:flex;flex-direction:column;gap:6px;min-width:560px;padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.kr{display:flex;gap:6px}
+.kr:nth-child(2){padding-left:22px}.kr:nth-child(3){padding-left:34px}.kr:nth-child(4){padding-left:52px}
+.k{flex:0 0 46px;height:52px;border-radius:7px;background:var(--none);border:1px solid var(--line);border-bottom-width:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font:600 1.05rem "IBM Plex Mono",monospace;color:var(--ink)}
+.k small{font:400 .66rem "Atkinson Hyperlegible",sans-serif;opacity:.9}
+.k.space{flex:0 0 300px;margin-left:120px}
+.k.easy{background:var(--easy);color:#fff;border-color:#3f7a4c}
+.k.mid{background:var(--mid);color:#2b2100;border-color:#b38a22}
+.k.hard{background:var(--hard);color:#fff;border-color:#9c2f3e}
+.k.flash{transform:translateY(2px)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.9rem;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+
+/* results table */
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:480px;background:var(--panel);border:1px solid var(--line)}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+th{font-size:.9rem;color:var(--muted);font-weight:700}
+td.key{font:600 1.15rem "IBM Plex Mono",monospace}
+.pill{display:inline-block;padding:1px 9px;border-radius:20px;font-size:.85rem;font-weight:700}
+.pill.hard{background:var(--hard);color:#fff}.pill.mid{background:var(--mid);color:#2b2100}.pill.easy{background:var(--easy);color:#fff}
+.summary{display:flex;gap:28px;flex-wrap:wrap;margin:6px 0 4px}
+.summary div{font-size:.95rem;color:var(--muted)}
+.summary b{display:block;font-size:1.7rem;color:var(--ink)}
+.hidden{display:none}
+.hist li{margin-bottom:4px}
+@media (max-width:600px){h1{font-size:1.6rem}.text{font-size:1.1rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* credit line */
+footer.credit{margin-top:44px;padding-bottom:24px;text-align:center}
+#sig{margin:0 auto;font-size:13.5px;letter-spacing:.02em;color:#66727f;font-family:inherit}
+#sig .h{color:#e5484d;display:inline-block;transform-origin:50% 55%;animation:beat 1.6s ease-in-out infinite}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) #sig{color:#8ba0c0}:root:not([data-theme="light"]) #sig .h{color:#ff7a6b}}
+:root[data-theme="dark"] #sig{color:#8ba0c0}:root[data-theme="dark"] #sig .h{color:#ff7a6b}
+@keyframes beat{0%{transform:scale(1)}8%{transform:scale(1.32)}16%{transform:scale(1)}24%{transform:scale(1.22)}34%{transform:scale(1)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){#sig .h{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Difficult Keys Finder</h1>
+  <p class="lead">Type the test passage. There are six passages of equal difficulty, and each new test uses the next one, so students cannot learn it by heart. Every keystroke is measured — which keys you miss and which keys make you slow down. At the end, the keyboard lights up to show your difficult keys, and you get a practice lesson made only from them.</p>
+
+  <section id="typing">
+    <div class="row-btns">
+      <button id="btnTest">Start the key test</button>
+      <button id="btnDrill" class="ghost hidden">Practice my difficult keys</button>
+    </div>
+    <div id="board" class="board" tabindex="0" aria-label="Typing area. Click here and start typing.">
+      <div id="title" style="font-weight:700;margin-bottom:8px">Key test</div>
+      <div id="text" class="text"></div>
+      <div class="live"><span>Speed <b id="wpm">0</b> WPM</span><span>Accuracy <b id="acc">100</b>%</span><span>Progress <b id="prog">0</b>%</span></div>
+      <div class="hint">Click here, then type. A wrong key turns red — press the correct key to move on. Backspace is not needed.</div>
+      <textarea id="cap" class="cap" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true"></textarea>
+    </div>
+  </section>
+
+  <section id="results" class="hidden">
+    <h2>Your keyboard</h2>
+    <div class="summary">
+      <div><b id="rWpm">0</b>words per minute</div>
+      <div><b id="rAcc">0%</b>accuracy</div>
+      <div><b id="rHard">0</b>difficult keys</div>
+    </div>
+    <div class="kb-wrap"><div id="kb" class="kb"></div></div>
+    <div class="legend"><span><i style="background:var(--easy)"></i>Easy</span><span><i style="background:var(--mid)"></i>Needs practice</span><span><i style="background:var(--hard)"></i>Difficult</span><span><i style="background:var(--none);border:1px solid var(--line)"></i>Not enough data</span></div>
+
+    <h2>Difficult keys, worst first</h2>
+    <p class="lead">Mistakes = how often a wrong key was pressed instead. Time = average time taken to reach that key. "Typed instead" shows which key the fingers go to by mistake.</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Key</th><th>Level</th><th>Mistakes</th><th>Time</th><th>Typed instead</th></tr></thead><tbody id="tbody"></tbody></table></div>
+    <div class="row-btns">
+      <button id="btnDrill2">Practice my difficult keys</button>
+      <button id="btnRetest" class="ghost">Take the key test again</button>
+    </div>
+
+    <h2>Past key tests</h2>
+    <ul id="hist" class="hist"></ul>
+    <button id="btnClear" class="ghost">Clear past tests</button>
+  </section>
+  <footer class="credit"><p id="sig"></p></footer>
+</main>
+
+<script>
+const TESTS = [
+"the quick brown fox jumps over the lazy dog. pack my box with five dozen jam jars. sphinx of black quartz, judge my vow. the five boxing wizards jump quickly. how vexingly quick daft zebras jump! we promptly judged six antique ivory buckles. our class has 34 boys and 25 girls; we read 160 books in 2026 and wrote 789 pages. for help, call 9301847562.",
+"jackdaws love my big sphinx of quartz. crazy fredrick bought many very exquisite opal jewels. we promptly judged antique ivory buckles for the next prize. a quick movement of the enemy will jeopardize six gunboats! our school bus carries 47 children; it covers 18 km in 52 minutes, and stops 9 times near 630 houses. for help, call 7192058346.",
+"the quick onyx goblin jumps over the lazy dwarf. two driven jocks help fax my big quiz. five quacking zephyrs jolt my wax bed. the explorer was frozen in his big kayak just after making queer discoveries. jived fox nymph grabs quick waltz! in 2019 our village had 386 homes; now it has 574 homes, and two new wells. for help, call 8456019237.",
+"my faxed joke won a pager in the cable tv quiz show. mr jock, tv quiz phd, bags few lynx. glib jocks quiz nymph to vex dwarf. we quickly seized the black axle and just saved it from going past him. heavy boxes perform quick waltzes and jigs! the fair sold 1250 tickets; 68 teachers and 437 parents came on day 9. for help, call 6274913058.",
+"quick zephyrs blow, vexing daft jim. sixty zippers were quickly picked from the woven jute bag. back in june we delivered oxygen equipment of the same size. a large fawn jumped quickly over white zinc boxes. waxing floors frequently peeves chintzy kids! our team scored 81 runs in 9 overs; we need 357 more, and the record is 2046. for help, call 9548102763.",
+"amazingly few discotheques provide jukeboxes. foxy parsons quiz and cajole the lovably dim wiki girl. keep examining every low bid for zinc etchings. the wizard quickly jinxed the gnomes before they vaporized. puzzled women bequeath jerks very exotic gifts! the library got 492 new books; 175 are stories, and 38 are about 60 famous people. for help, call 8035729164."
+];
+// six balanced passages: every letter and digit at least twice, 339-367 keystrokes each
+const ROT = "difficultKeys.nextTest.v1";
+let testNo = 0;
+function nextTest(){ let i=0; try{ i=parseInt(localStorage.getItem(ROT)||"0",10)||0; }catch(e){} i=i%TESTS.length; testNo=i; try{ localStorage.setItem(ROT,String((i+1)%TESTS.length)); }catch(e){} return TESTS[i]; }
+
+const WORDS = ("about above across after again against always among animal answer apple area army around ask back bad ball bank base basket bear beautiful because become bed before begin behind believe below best better between big bird black blue board boat body book both box boy bread break bring brown build busy buy cake call came camp can car care carry cat catch cause center chair chance change check child choose circle city class clean clear clock close cloth cloud cold color come common complete computer cook copy corner could country cover cross crowd cup cut dance dark day dead deep desk did different dinner direct does dog dollar done door double down dozen draw dream dress drink drive drop dry duck during each early earth east easy eat edge egg eight enjoy enough equal even evening every exact example excite exercise expect explain eye face fact fair fall family famous farm fast father fear feel field fight figure fill final find fine finger finish fire first fish five fix flag flat floor flower fly follow food foot force forest form forward four fox free fresh friend from front fruit full fun game garden gate gave general gentle get girl give glad glass goal gold good grade grass great green ground group grow guess guide half hand happy hard have head hear heart heavy help high hill history hold hole home hope horse hot hour house huge human hundred hungry idea important inch inside instant iron island jacket jam jar jeep jelly job join joke journey joy judge juice jump jungle just keen keep kept key kick kind king kitchen kite knee knife knock know lady lake land language large last late laugh lazy lead learn leave left lesson letter level light like line lion list listen little live long look loud love low lucky machine made major make many map mark market match matter maybe meal mean measure meet member method middle might milk million mind minute mix money month moon more morning mother move music must name nation nature near neck need never next night noise north note nothing number object ocean office often oil old open order other over own page paint paper parent park part party pass past path pay peace pen people pick picture piece place plan plant play please pocket point police poor power practice prepare present price prize problem produce public pull push put puzzle quality quarter queen question quick quiet quite quiz radio rain raise reach read ready reason record region remember repair reply rest result return rich ride right river road rock room round rule safe salt same sand save school science score sea season seat second seed seven shape share sharp sheep shop short should show side sign simple since sing sister size skill sky sleep slow small smile snow soft some song soon sound south space speak special speed spell spend sport spring square stand star start station stay step stick still stone stop story street strong study subject sugar summer sun sure table take talk teach team tell test thank their thick thing think three throw tiny today together told tomorrow tool top total touch toward town track train tree trip true try turn twelve type under unit until upon use usual valley value various very view village visit voice vote wait walk want warm wash watch water wave week weight west wheel while white whole wide wife wild wind window winter wish without woman wonder wood word work world write wrong yard year yellow yes young zebra zero zone zoo zip lazy fuzzy quiz box six mix wax fix exam extra next taxi oxygen equal quarter squeeze").split(" ");
+
+const ROWS = [["1","2","3","4","5","6","7","8","9","0","-"],["q","w","e","r","t","y","u","i","o","p"],["a","s","d","f","g","h","j","k","l",";","'"],["z","x","c","v","b","n","m",",",".","/"],["space"]];
+const STORE = "difficultKeys.history.v1";
+
+const $ = id => document.getElementById(id);
+let text="", pos=0, stats={}, hits=0, misses=0, startT=0, lastT=0, mode="test", running=false, lastResult=null;
+
+const norm = ch => ch===" " ? "space" : ch.toLowerCase();
+const show = k => k==="space" ? "␣" : k;
+
+function render(){
+  $("text").innerHTML = [...text].map((c,i)=>{
+    const cls = i<pos ? "ok" : i===pos ? "cur" : "";
+    return `<span id="c${i}" class="${cls}">${c===" "?"&nbsp;":c.replace("<","&lt;")}</span>`;
+  }).join("");
+}
+
+function start(newMode, newText){
+  mode=newMode; text=newText; pos=0; stats={}; hits=0; misses=0; startT=0; lastT=0; running=true;
+  $("title").textContent = mode==="test" ? `Key test: passage ${testNo+1} of ${TESTS.length}` : "Practice lesson: your difficult keys";
+  $("typing").classList.remove("hidden");
+  render(); updateLive(); focusBoard();
+  $("board").scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+function focusBoard(){ $("cap").focus({preventScroll:true}); }
+
+function stat(k){ return stats[k] || (stats[k]={hit:0,miss:0,times:[],wrong:{}}); }
+
+function press(ch){
+  if(!running || pos>=text.length) return;
+  const now=performance.now();
+  if(!startT){ startT=now; }
+  const exp=text[pos], k=norm(exp), s=stat(k);
+  if(ch===exp){
+    if(lastT){ const dt=now-lastT; if(dt<3000) s.times.push(dt); }
+    s.hit++; hits++; lastT=now;
+    const el=$("c"+pos); if(el){el.className="ok";}
+    pos++;
+    const nx=$("c"+pos); if(nx) nx.className="cur";
+    if(pos>=text.length){ finish(); return; }
+  } else {
+    s.miss++; misses++;
+    const w=norm(ch); s.wrong[w]=(s.wrong[w]||0)+1;
+    const el=$("c"+pos); if(el){ el.className="bad"; }
+  }
+  updateLive();
+}
+
+function updateLive(){
+  const mins = startT ? (performance.now()-startT)/60000 : 0;
+  $("wpm").textContent = mins>0.02 ? Math.round((hits/5)/mins) : 0;
+  $("acc").textContent = hits+misses ? Math.round(100*hits/(hits+misses)) : 100;
+  $("prog").textContent = text.length ? Math.round(100*pos/text.length) : 0;
+}
+
+const cap=$("cap");
+cap.addEventListener("input",()=>{ const v=cap.value; cap.value=""; for(const ch of v){ press(ch==="\n"?" ":ch); } });
+$("board").addEventListener("click",focusBoard);
+$("board").addEventListener("keydown",e=>{ if(document.activeElement!==cap){ focusBoard(); }});
+
+function median(a){ if(!a.length) return 0; const b=[...a].sort((x,y)=>x-y); const m=b.length>>1; return b.length%2?b[m]:(b[m-1]+b[m])/2; }
+
+function analyse(){
+  const all=[]; Object.values(stats).forEach(s=>all.push(...s.times));
+  const med = median(all) || 300;
+  const out={};
+  for(const [k,s] of Object.entries(stats)){
+    const tries=s.hit+s.miss; if(tries<2) continue;
+    const err=s.miss/tries, ms=median(s.times)||med;
+    const slow=Math.max(0, ms/med-1);
+    const score=err*100 + slow*40;
+    const level = score>=22 ? "hard" : score>=9 ? "mid" : "easy";
+    const wrong=Object.entries(s.wrong).sort((a,b)=>b[1]-a[1]).slice(0,2).map(x=>x[0]);
+    out[k]={err,ms:Math.round(ms),score,level,wrong,tries};
+  }
+  return out;
+}
+
+function finish(){
+  running=false;
+  const mins=(performance.now()-startT)/60000;
+  const res=analyse();
+  lastResult={res, wpm:Math.round((hits/5)/Math.max(mins,0.01)), acc:Math.round(100*hits/(hits+misses))};
+  if(mode==="test") saveHistory(lastResult);
+  showResults(lastResult);
+}
+
+function showResults(r){
+  $("results").classList.remove("hidden");
+  $("btnDrill").classList.remove("hidden");
+  $("rWpm").textContent=r.wpm; $("rAcc").textContent=r.acc+"%";
+  const ranked=Object.entries(r.res).filter(([,v])=>v.level!=="easy").sort((a,b)=>b[1].score-a[1].score);
+  $("rHard").textContent=ranked.filter(([,v])=>v.level==="hard").length;
+  $("kb").innerHTML=ROWS.map(row=>`<div class="kr">${row.map(k=>{
+    const v=r.res[k]; const cls=v?v.level:"";
+    const sub=v?`<small>${Math.round(v.err*100)}% · ${v.ms}ms</small>`:"";
+    return `<div class="k ${k==="space"?"space ":""}${cls}" title="${k}">${show(k)}${sub}</div>`;
+  }).join("")}</div>`).join("");
+  $("tbody").innerHTML = ranked.length ? ranked.map(([k,v])=>`<tr><td class="key">${show(k)}</td><td><span class="pill ${v.level}">${v.level==="hard"?"Difficult":"Needs practice"}</span></td><td>${Math.round(v.err*100)}%</td><td>${v.ms} ms</td><td>${v.wrong.length?v.wrong.map(show).join(", "):"—"}</td></tr>`).join("")
+    : `<tr><td colspan="5">No difficult keys found. Excellent typing — try the test again to build speed.</td></tr>`;
+  renderHistory();
+  $("results").scrollIntoView({behavior:"smooth"});
+}
+
+function weakKeys(){
+  if(!lastResult) return [];
+  return Object.entries(lastResult.res).filter(([k,v])=>k!=="space" && v.level!=="easy")
+    .sort((a,b)=>b[1].score-a[1].score).slice(0,6);
+}
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+function makeDrill(){
+  const weak=weakKeys();
+  if(!weak.length) return null;
+  const keys=weak.map(x=>x[0]);
+  const parts=[];
+  // 1. key-reach drill: home key + weak key
+  const home={q:"a",w:"s",e:"d",r:"f",t:"f",y:"j",u:"j",i:"k",o:"l",p:";",z:"a",x:"s",c:"d",v:"f",b:"f",n:"j",m:"j",",":"k",".":"l","/":";"};
+  keys.forEach(k=>{ const h=home[k]||"f"; parts.push(`${k}${k}${k} ${h}${k}${h} ${k}${h}${k} ${h}${k}${k}`); });
+  // 2. contrast drill for keys pressed by mistake
+  weak.forEach(([k,v])=>{ const w=v.wrong[0]; if(w && w!=="space" && w.length===1) parts.push(`${k}${w} ${w}${k} ${k}${k}${w} ${w}${w}${k}`); });
+  // 3. real words full of weak keys
+  const letters=keys.filter(k=>/[a-z]/.test(k));
+  let words=WORDS.filter(w=>letters.some(k=>w.includes(k)));
+  words.sort((a,b)=>letters.filter(k=>b.includes(k)).length-letters.filter(k=>a.includes(k)).length);
+  words=shuffle(words.slice(0,60)).slice(0,30);
+  // digits/punctuation get number practice
+  const others=keys.filter(k=>!/[a-z]/.test(k));
+  if(others.length){ const pool=["10","25","34","67","89","2026"]; parts.push(shuffle(others.map(k=>/[0-9]/.test(k)?`${k}${k} ${k}0${k}`:`a${k} b${k} c${k}`)).join(" ")); }
+  return parts.join(" ")+" "+words.join(" ");
+}
+
+function saveHistory(r){
+  try{
+    const h=JSON.parse(localStorage.getItem(STORE)||"[]");
+    const hard=Object.entries(r.res).filter(([,v])=>v.level==="hard").sort((a,b)=>b[1].score-a[1].score).map(([k])=>k).slice(0,8);
+    h.unshift({d:new Date().toLocaleString(),p:testNo+1,wpm:r.wpm,acc:r.acc,hard});
+    localStorage.setItem(STORE,JSON.stringify(h.slice(0,10)));
+  }catch(e){}
+}
+function renderHistory(){
+  let h=[]; try{h=JSON.parse(localStorage.getItem(STORE)||"[]");}catch(e){}
+  $("hist").innerHTML = h.length ? h.map(x=>`<li>${x.d}${x.p?", passage "+x.p:""}: ${x.wpm} WPM, ${x.acc}% accuracy. Difficult keys: <b>${x.hard.length?x.hard.map(show).join(" "):"none"}</b></li>`).join("") : "<li>No tests saved yet.</li>";
+}
+
+$("btnTest").onclick=()=>start("test",nextTest());
+$("btnRetest").onclick=()=>start("test",nextTest());
+const drill=()=>{ const t=makeDrill(); if(!t){ alert("No difficult keys found yet. Take the key test first."); return; } start("drill",t); };
+$("btnDrill").onclick=drill; $("btnDrill2").onclick=drill;
+$("btnClear").onclick=()=>{ try{localStorage.removeItem(STORE);}catch(e){} renderHistory(); };
+
+start("test",nextTest()); running=true;
+
+(function(){
+  var P="OlUMbwj3R05hVyxbw7Km5C8JmxzKrcK51PFGu/CC2+3LMZPL", K=[0x5A,0x2D,0x7C,0x11,0x63,0xB4,0x0E], C=21593634;
+  function open_(){
+    var r=atob(P),b=new Uint8Array(r.length);
+    for(var i=0;i<r.length;i++) b[i]=(r.charCodeAt(i)^K[i%7]^((i*7+3)&0xFF))&0xFF;
+    var h=0; for(var j=0;j<b.length;j++) h=(Math.imul(h,31)+b[j])>>>0;
+    if(h!==C) return "";
+    return new TextDecoder().decode(b);
+  }
+  function paint(){
+    var t=open_(), el=document.getElementById("sig");
+    if(!el||!t) return;
+    el.innerHTML=t.replace("♥",'<span class="h">♥</span>');
+  }
+  paint();
+  setInterval(function(){
+    var el=document.getElementById("sig");
+    if(!el||el.textContent.trim()!==open_().trim()) paint();
+  },2500);
+})();
+</script>
+</body>
+</html>
